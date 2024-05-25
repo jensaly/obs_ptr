@@ -1,0 +1,17 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "debug_tests",
+            "displayName": "Debug with Tests",
+            "description": "Runs all function tests",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build/debug",
+            "installDir": "${sourceDir}/output/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTS": "TRUE"
+            }
+        }
+    ]
+}
