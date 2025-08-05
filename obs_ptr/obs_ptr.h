@@ -1,92 +1,134 @@
-#pragma once 
-#include "memobserver.h"
-#include "memobservee.h"
+#pragma once
+#include "IObserved.h"
+#include "IObserver.h"
 
-template <class T>
-struct obs_ptr : public IMemObserver {
+template <class Observed>
+struct Observer : public IObserver, public std::enable_shared_from_this<Observer<Observed>>
+{
 private:
-    T* _observee = nullptr;
-    // Removes observer from the IMemObservee object
-    inline void remove_observer() {
-        if (_observee != nullptr)
-            _observee->remove_observer(this);
+    std::weak_ptr<Observed> m_observed;
+    // Removes observer from the IObserved object
+    inline void remove_observer()
+    {
+        if (m_observed.lock() != nullptr)
+        {
+            m_observed->remove_observer(shared_from_this());
+        }
     }
 
-    // Adds observer from the IMemObservee object
-    // We pass the new_observee object even though it is already set to the
-    // _observee-variable, so we are explicit.
-    inline void add_observer(IMemObservee* new_observee) {
-        if (new_observee != nullptr)
-            new_observee->add_observer(this);
+    // Adds observer from the IObserved object
+    // We pass the new m_observed object even though it is already set to the
+    // m_observed-variable, so we are explicit.
+    inline void add_observer(std::shared_ptr<IObserved> object)
+    {
+        if (object != nullptr)
+        {
+            object->add_observer(shared_from_this());
+        }
     }
 
     // Mechanism which resets the pointer on destruction of target.
-    // Called by notify_all() in IMemObservee, which is called on destruction.
-    void handle_notification() override {
-        _observee = nullptr;
+    // Called by notify_all() in IObserved, which is called on destruction.
+    void handle_notification(IObserved *observed) override
+    {
+        m_observed.reset();
     }
+
 public:
     // Constructors
     // Initialized with an observee, no callback (pointer owner does not need notification)
-    explicit obs_ptr(T* observee) : _observee(observee) {
-        observee->add_observer(this);
+    explicit Observer(std::shared_ptr<Observed> observed) : m_observed(observed)
+    {
+        observed->add_observer(shared_from_this());
     }
     // Move constructor
-    obs_ptr(obs_ptr<T>&& value) : obs_ptr(value._observee) {
-
+    Observer(Observer<Observed> &&value) : Observer(value.m_observed)
+    {
     }
     // Default construction with no initial observee.
-    obs_ptr() {
-        _observee = nullptr;
+    Observer()
+    {
+        // weak_ptr, no logic
     }
     // Copy constructor
-    obs_ptr(obs_ptr<T>& other) {
-        _observee = other._observee;
-        add_observer(other._observee);
+    Observer(Observer<Observed> &other)
+    {
+        m_observed = other.m_observed;
+        add_observer(other.m_observed);
     }
 
     // Destructor
-    ~obs_ptr() {
+    ~Observer()
+    {
         remove_observer();
     }
-
-    // Dereference operators
-    T& operator *() { return *_observee; };
-    T* operator ->() { return _observee; };
 
     // Assignment operators
-    obs_ptr<T>& operator=(T* new_observee) {
+    Observer<Observed> &operator=(std::shared_ptr<Observed> pOther)
+    {
         remove_observer();
-        _observee = new_observee;
-        add_observer(new_observee);
+        m_observed = pOther;
+        add_observer(pOther);
         // Owner is unchanged, so callback is unchanged
         return *this;
     }
-    obs_ptr<T>& operator=(const obs_ptr<T>& new_observee) {
-        if (&new_observee == this) return *this;
-        remove_observer();
-        _observee = new_observee._observee;
-        add_observer(_observee);
-        // Owner is unchanged, so callback is unchanged
-        return *this;
-    }
-
-    // Conversion operators
-    operator T*() const { return _observee; }
 
     // Comparison operators
-    bool operator==(const obs_ptr<T>& o_observee) const {
-        return o_observee._observee == _observee;
+    bool operator==(const Observer<Observed> &pOther) const
+    {
+        return pOther.m_observed == m_observed;
     }
-    bool operator==(T* o_observee) const {
-        return o_observee == _observee;
+    bool operator==(const std::shared_ptr<Observed> &pOther) const
+    {
+        return pOther == m_observed;
     }
-    bool operator!=(const obs_ptr<T>& o_observee) const {
-        return o_observee._observee != _observee;
+    /*
+    bool operator!=(const Observer<T> &om_observed) const
+    {
+        return o_observed.m_observed != m_observed;
     }
-    bool operator!=(const T* o_observee) const {
-        return o_observee != _observee;
+    bool operator!=(const T *om_observed) const
+    {
+        return o_observed != m_observed;
+    }
+        */
+
+    Observed *get() { return m_observed.lock().get(); }
+
+    // Wrapped weak_ptr members
+
+    bool expired() const noexcept
+    {
+        return m_observed.expired();
     }
 
-    T* get() { return _observee; }
+    std::shared_ptr<Observed> lock() const noexcept
+    {
+        return m_observed.lock();
+    }
+
+    void set(std::shared_ptr<Observed> observed)
+    {
+        if (observed == m_observed.lock())
+        {
+            return;
+        }
+        remove_observer();
+        m_observed = observed;
+        add_observer(observed);
+    }
+
+    void unset()
+    {
+        set(nullptr);
+    }
 };
+
+template <typename T>
+using obs_ptr = std::shared_ptr<Observer<T>>;
+
+template <typename T>
+obs_ptr<T> make_observer(std::shared_ptr<T> observed)
+{
+    return std::make_shared<Observer<T>>(observed);
+}

@@ -1,8 +1,8 @@
 # Memory observer pattern through self-nulling smart pointer
 
-This library introduces a smart pointer, obs_ptr. It is a hybrid owning and non-owning pointer to an object that inherits the IMemObservee-interface.
+This library introduces a smart pointer, obs_ptr. It is a hybrid owning and non-owning pointer to an object that inherits the IObserved-interface.
 
-When the object is deallocated, its the IMemObservee destructor is called, which subsequently unsets all the obs_ptrs to the object.
+When the object is deallocated, its the IObserved destructor is called, which subsequently unsets all the obs_ptrs to the object.
 
 If used in full, it ensures no dangling pointers are present automatically.
 
