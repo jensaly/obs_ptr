@@ -24,25 +24,34 @@
 // ========================
 // Forward Declarations
 // ========================
+template <typename T>
+class Observer;
 
-template <typename ContainerType, typename PointerType>
-inline void RemoveSingleInstancePointerInContainer(std::set<ContainerType> &v, PointerType t)
+class IObserved;
+
+inline void RemoveSingleInstancePointerInContainer(
+    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> &v,
+    std::weak_ptr<IObserver> t)
 {
-    auto p = std::find(v.begin(), v.end(), t);
-    (p != v.end()) ? v.erase(p) : p;
+    auto p = v.find(t); // uses owner_less to compare
+    if (p != v.end())
+    {
+        v.erase(p);
+    }
 }
 
-template <typename ContainerType, typename PointerType>
-inline bool IsInstanceInContainer(std::set<ContainerType> const &v, PointerType const t)
+inline bool IsInstanceInContainer(
+    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> const &v,
+    std::weak_ptr<IObserver> const t)
 {
-    return std::find(v.begin(), v.end(), t) != v.end();
+    return v.find(t) != v.end();
 }
 
 class IObserver;
 
 class IObserved
 {
-    std::set<std::weak_ptr<IObserver>> m_observers; // Cannot have duplicate values
+    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> m_observers; // Cannot have duplicate values
     void notify_all()
     {
         // All_observers is unchanging, containing all the observers at the start of destruction
@@ -52,23 +61,20 @@ class IObserved
         auto all_observers = m_observers;
         for (auto wpObserver : all_observers)
         {
-            if (m_observers.find(wpObserver) != m_observers.end())
+            auto pObserver = wpObserver.lock();
+            if (pObserver == nullptr)
             {
-                auto pObserver = wpObserver.lock();
-                if (pObserver == nullptr)
-                {
-                    // Should never happen under any circumstances. Observer was deallocated without notifying observed.
-                    assert(false);
-                }
-                pObserver->handle_notification(this);
+                // Should never happen under any circumstances. Observer was deallocated without notifying observed.
+                assert(false);
             }
+            pObserver->handle_notification(this);
         }
     }
     void add_observer(std::weak_ptr<IObserver> wpObserver)
     {
         if (IsInstanceInContainer(m_observers, wpObserver))
         {
-            m_observers.insert(pObserver);
+            m_observers.insert(wpObserver);
         }
     }
     void remove_observer(std::shared_ptr<IObserver> pObserver)
@@ -93,6 +99,10 @@ public:
     }
     bool IsObserver(std::shared_ptr<IObserver> pObserver) const
     {
-        return IsInstanceInContainer(m_observers, pObserver);
+        std::weak_ptr<IObserver> wpObserver = pObserver;
+        return IsInstanceInContainer(m_observers, wpObserver);
     }
+
+    template <typename T>
+    friend class Observer;
 };

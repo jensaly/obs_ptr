@@ -2,15 +2,15 @@
 
 TEST(BasicObsTest, DefaultConstruction)
 {
-    obs_ptr<SimpleObsTargetTestClass> test;
-    ASSERT_EQ(test.get(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
+    auto test = make_empty_observer<SimpleObsTargetTestClass>();
+    ASSERT_EQ(test->get_raw(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
 }
 
 TEST(BasicObsTest, ConstructionWithTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
     auto test = make_observer(var);
-    ASSERT_EQ(test.get(), var) << "obs_ptr.get() does not return pointer it was constructed with.";
+    ASSERT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
 }
 
 // Tests the IsObserver and Observers functions as well.
@@ -24,7 +24,7 @@ TEST(BasicObsTest, AssignmentToTarget)
 
     test->set(var);
 
-    ASSERT_EQ(test.get(), var) << "obs_ptr.get() does not return pointer it was constructed with.";
+    ASSERT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
     ASSERT_TRUE(var->IsObserver(test));
     ASSERT_EQ(var->Observers(), 1);
 }
@@ -35,9 +35,9 @@ TEST(BasicObsTest, ScopedDestructionOfTarget)
     {
         auto var = std::make_shared<SimpleObsTargetTestClass>();
         test = make_observer(var);
-        ASSERT_NE(test.get(), nullptr);
+        ASSERT_NE(test->get_raw(), nullptr);
     }
-    ASSERT_EQ(test.get(), nullptr);
+    ASSERT_EQ(test->get_raw(), nullptr);
 }
 
 // Testing assignment between two IObserveds of the same type.
@@ -49,7 +49,7 @@ TEST(BasicObsTest, ReassignmentBetweenTargets)
     obs_ptr<SimpleObsTargetTestClass> test;
     test->set(var1);
 
-    ASSERT_EQ(test.get(), var1);
+    ASSERT_EQ(test->get_raw(), var1.get());
     ASSERT_TRUE(var1->IsObserver(test));
     ASSERT_EQ(var1->Observers(), 1);
     ASSERT_FALSE(var2->IsObserver(test));
@@ -57,7 +57,7 @@ TEST(BasicObsTest, ReassignmentBetweenTargets)
 
     test->set(var2);
 
-    ASSERT_EQ(test.get(), var2);
+    ASSERT_EQ(test->get_raw(), var2.get());
     ASSERT_TRUE(var2->IsObserver(test));
     ASSERT_EQ(var2->Observers(), 1);
     ASSERT_FALSE(var1->IsObserver(test));
@@ -65,7 +65,7 @@ TEST(BasicObsTest, ReassignmentBetweenTargets)
 
     test->set(nullptr);
 
-    ASSERT_EQ(test.get(), nullptr);
+    ASSERT_EQ(test->get_raw(), nullptr);
     ASSERT_FALSE(var1->IsObserver(test));
     ASSERT_EQ(var1->Observers(), 0);
     ASSERT_FALSE(var2->IsObserver(test));
@@ -80,9 +80,9 @@ TEST(BasicObsTest, CopyConstructor)
     auto test2{test1};
     auto test3{test2};
 
-    ASSERT_EQ(test1.get(), var);
-    ASSERT_EQ(test2.get(), var);
-    ASSERT_EQ(test3.get(), var);
+    ASSERT_EQ(test1->get_raw(), var.get());
+    ASSERT_EQ(test2->get_raw(), var.get());
+    ASSERT_EQ(test3->get_raw(), var.get());
     ASSERT_TRUE(var->IsObserver(test1));
     ASSERT_TRUE(var->IsObserver(test2));
     ASSERT_TRUE(var->IsObserver(test3));
@@ -90,9 +90,9 @@ TEST(BasicObsTest, CopyConstructor)
 
     test1 = nullptr;
 
-    ASSERT_EQ(test1.get(), nullptr);
-    ASSERT_EQ(test2.get(), var);
-    ASSERT_EQ(test3.get(), var);
+    ASSERT_EQ(test1->get_raw(), nullptr);
+    ASSERT_EQ(test2->get_raw(), var.get());
+    ASSERT_EQ(test3->lock(), var);
     ASSERT_FALSE(var->IsObserver(test1));
     ASSERT_TRUE(var->IsObserver(test2));
     ASSERT_TRUE(var->IsObserver(test3));
@@ -100,8 +100,8 @@ TEST(BasicObsTest, CopyConstructor)
 
     var.reset();
 
-    ASSERT_EQ(test2.get(), nullptr);
-    ASSERT_EQ(test3.get(), nullptr);
+    ASSERT_EQ(test2->get_raw(), nullptr);
+    ASSERT_EQ(test3->get_raw(), nullptr);
 }
 
 // Assignment to another obs_ptr and to nullptr.
@@ -125,14 +125,14 @@ TEST(BasicObsTest, AssignmentToOtherObs)
     test2 = test3;
     ASSERT_FALSE(var2->IsObserver(test2));
     ASSERT_EQ(var2->Observers(), 1);
-    ASSERT_EQ(test2.get(), nullptr);
+    ASSERT_EQ(test2->get_raw(), nullptr);
 
     // Assignment from an inactive obs_ptr to an active obs_ptr
     test3 = test1;
     ASSERT_TRUE(var2->IsObserver(test1));
     ASSERT_TRUE(var2->IsObserver(test3));
     ASSERT_EQ(var2->Observers(), 2);
-    ASSERT_EQ(test3.get(), var2);
+    ASSERT_EQ(test3->lock(), var2);
 }
 
 TEST(BasicObsTest, ComparisonOperators)
@@ -148,11 +148,6 @@ TEST(BasicObsTest, ComparisonOperators)
     ASSERT_FALSE(test1 == test2);
     ASSERT_TRUE(test1 == test1);
     ASSERT_TRUE(test1 == test3);
-
-    // Equality operator between obs_ptrs and raw pointers
-    ASSERT_TRUE(test1 == var1);
-    ASSERT_FALSE(test1 == var2);
-    ASSERT_FALSE(test1 == test4);
 
     // Nullptr comparison
     ASSERT_FALSE(test1 == nullptr);

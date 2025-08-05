@@ -10,9 +10,10 @@ private:
     // Removes observer from the IObserved object
     inline void remove_observer()
     {
-        if (m_observed.lock() != nullptr)
+        auto pObserved = m_observed.lock();
+        if (pObserved != nullptr)
         {
-            m_observed->remove_observer(shared_from_this());
+            pObserved->remove_observer(std::enable_shared_from_this<Observer<Observed>>::shared_from_this());
         }
     }
 
@@ -23,7 +24,7 @@ private:
     {
         if (object != nullptr)
         {
-            object->add_observer(shared_from_this());
+            object->add_observer(std::enable_shared_from_this<Observer<Observed>>::shared_from_this());
         }
     }
 
@@ -39,7 +40,7 @@ public:
     // Initialized with an observee, no callback (pointer owner does not need notification)
     explicit Observer(std::shared_ptr<Observed> observed) : m_observed(observed)
     {
-        observed->add_observer(shared_from_this());
+        observed->add_observer(std::enable_shared_from_this<Observer<Observed>>::shared_from_this());
     }
     // Move constructor
     Observer(Observer<Observed> &&value) : Observer(value.m_observed)
@@ -80,8 +81,9 @@ public:
     }
     bool operator==(const std::shared_ptr<Observed> &pOther) const
     {
-        return pOther == m_observed;
+        return pOther == m_observed.lock();
     }
+
     /*
     bool operator!=(const Observer<T> &om_observed) const
     {
@@ -93,7 +95,7 @@ public:
     }
         */
 
-    Observed *get() { return m_observed.lock().get(); }
+    Observed *get_raw() { return (m_observed.expired() ? nullptr : m_observed.lock().get()); }
 
     // Wrapped weak_ptr members
 
@@ -131,4 +133,10 @@ template <typename T>
 obs_ptr<T> make_observer(std::shared_ptr<T> observed)
 {
     return std::make_shared<Observer<T>>(observed);
+}
+
+template <typename T>
+obs_ptr<T> make_empty_observer()
+{
+    return std::make_shared<Observer<T>>();
 }
