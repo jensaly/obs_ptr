@@ -2,18 +2,27 @@
 #include "IObserved.h"
 #include "IObserver.h"
 
+template <typename T>
+class Observer;
+
+template <typename T>
+using obs_ptr = std::shared_ptr<Observer<T>>;
+
+template <typename T>
+obs_ptr<T> make_observer(std::shared_ptr<T> observed);
+
 template <class Observed>
-struct Observer : public IObserver, public std::enable_shared_from_this<Observer<Observed>>
+class Observer : public IObserver, public std::weak_ptr <
 {
 private:
-    std::weak_ptr<Observed> m_observed;
+    std::weak_ptr<IObserved> m_observed;
     // Removes observer from the IObserved object
     inline void remove_observer()
     {
         auto pObserved = m_observed.lock();
         if (pObserved != nullptr)
         {
-            pObserved->remove_observer(std::enable_shared_from_this<Observer<Observed>>::shared_from_this());
+            pObserved->remove_observer(this);
         }
     }
 
@@ -35,12 +44,12 @@ private:
         m_observed.reset();
     }
 
+protected:
 public:
     // Constructors
     // Initialized with an observee, no callback (pointer owner does not need notification)
     explicit Observer(std::shared_ptr<Observed> observed) : m_observed(observed)
     {
-        observed->add_observer(std::enable_shared_from_this<Observer<Observed>>::shared_from_this());
     }
     // Move constructor
     Observer(Observer<Observed> &&value) : Observer(value.m_observed)
@@ -124,15 +133,16 @@ public:
     {
         set(nullptr);
     }
-};
 
-template <typename T>
-using obs_ptr = std::shared_ptr<Observer<T>>;
+    friend obs_ptr<Observed> make_observer<Observed>(std::shared_ptr<Observed> observed);
+};
 
 template <typename T>
 obs_ptr<T> make_observer(std::shared_ptr<T> observed)
 {
-    return std::make_shared<Observer<T>>(observed);
+    auto pObserver = std::make_shared<Observer<T>>(observed);
+    pObserver->add_observer(observed);
+    return pObserver;
 }
 
 template <typename T>

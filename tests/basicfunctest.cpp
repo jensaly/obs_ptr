@@ -17,16 +17,16 @@ TEST(BasicObsTest, ConstructionWithTarget)
 TEST(BasicObsTest, AssignmentToTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test;
+    obs_ptr<SimpleObsTargetTestClass> test = make_empty_observer<SimpleObsTargetTestClass>();
 
     ASSERT_EQ(var->Observers(), 0);
     ASSERT_FALSE(var->IsObserver(test));
 
     test->set(var);
 
-    ASSERT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
-    ASSERT_TRUE(var->IsObserver(test));
-    ASSERT_EQ(var->Observers(), 1);
+    EXPECT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
+    EXPECT_TRUE(var->IsObserver(test));
+    EXPECT_EQ(var->Observers(), 1);
 }
 
 TEST(BasicObsTest, ScopedDestructionOfTarget)

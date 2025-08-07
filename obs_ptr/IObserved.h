@@ -77,10 +77,28 @@ class IObserved
             m_observers.insert(wpObserver);
         }
     }
-    void remove_observer(std::shared_ptr<IObserver> pObserver)
+    void remove_observer(IObserver *pObserver)
     {
-        std::weak_ptr<IObserver> wpObserver = pObserver;
-        RemoveSingleInstancePointerInContainer(m_observers, wpObserver);
+        for (auto it = m_observers.begin(); it != m_observers.end();)
+        {
+            if (auto sp = it->lock())
+            {
+                if (sp.get() == pObserver)
+                {
+                    it = m_observers.erase(it);
+                    return;
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+            else
+            {
+                // Remove expired weak_ptrs while we're here
+                it = m_observers.erase(it);
+            }
+        }
     }
 
 protected:
