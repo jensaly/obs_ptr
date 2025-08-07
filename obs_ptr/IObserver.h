@@ -5,5 +5,8 @@ class IObserved;
 class IObserver
 {
 public:
-    virtual void handle_notification(IObserved *source) = 0;
+    friend class IObserved;
+
+protected:
+    virtual void handle_notification() = 0;
 };

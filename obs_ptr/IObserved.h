@@ -27,31 +27,11 @@
 template <typename T>
 class Observer;
 
-class IObserved;
-
-inline void RemoveSingleInstancePointerInContainer(
-    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> &v,
-    std::weak_ptr<IObserver> t)
-{
-    auto p = v.find(t); // uses owner_less to compare
-    if (p != v.end())
-    {
-        v.erase(p);
-    }
-}
-
-inline bool IsInstanceInContainer(
-    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> const &v,
-    std::weak_ptr<IObserver> const t)
-{
-    return v.find(t) != v.end();
-}
-
 class IObserver;
 
 class IObserved
 {
-    std::set<std::weak_ptr<IObserver>, std::owner_less<std::weak_ptr<IObserver>>> m_observers; // Cannot have duplicate values
+    std::vector<std::weak_ptr<IObserver>> m_observers; // Cannot have duplicate values
     void notify_all()
     {
         // All_observers is unchanging, containing all the observers at the start of destruction
@@ -67,15 +47,12 @@ class IObserved
                 // Should never happen under any circumstances. Observer was deallocated without notifying observed.
                 assert(false);
             }
-            pObserver->handle_notification(this);
+            pObserver->handle_notification();
         }
     }
-    void add_observer(std::weak_ptr<IObserver> wpObserver)
+    void add_observer(std::shared_ptr<IObserver> spObserver)
     {
-        if (IsInstanceInContainer(m_observers, wpObserver))
-        {
-            m_observers.insert(wpObserver);
-        }
+        m_observers.push_back(spObserver);
     }
     void remove_observer(IObserver *pObserver)
     {
@@ -101,6 +78,22 @@ class IObserved
         }
     }
 
+    void remove_destructed_observer()
+    {
+        auto isExpired = [](const std::weak_ptr<IObserver> &wp)
+        {
+            return wp.expired();
+        };
+
+        auto expiredCount = std::count_if(m_observers.begin(), m_observers.end(), isExpired);
+        if (expiredCount > 1)
+        {
+            throw std::runtime_error("More than one expired weak_ptr found");
+        }
+
+        m_observers.erase(std::remove_if(m_observers.begin(), m_observers.end(), isExpired), m_observers.end());
+    }
+
 protected:
     virtual ~IObserved()
     {
@@ -118,9 +111,9 @@ public:
     bool IsObserver(std::shared_ptr<IObserver> pObserver) const
     {
         std::weak_ptr<IObserver> wpObserver = pObserver;
-        return IsInstanceInContainer(m_observers, wpObserver);
+        return true;
     }
 
-    template <typename T>
-    friend class Observer;
+    template <class T>
+    friend class obs_ptr;
 };

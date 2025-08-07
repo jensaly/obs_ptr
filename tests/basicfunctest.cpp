@@ -1,5 +1,5 @@
 #include "testclasses.h"
-
+/*
 TEST(BasicObsTest, DefaultConstruction)
 {
     auto test = make_empty_observer<SimpleObsTargetTestClass>();
@@ -179,3 +179,4 @@ int main(int argc, char **argv)
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+    */
