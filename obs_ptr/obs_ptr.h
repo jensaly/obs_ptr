@@ -26,16 +26,32 @@ public:
         remove_on_destruction();
     }
 
+    bool operator==(std::nullptr_t) const noexcept
+    {
+        return m_wpObserved.lock() == nullptr;
+    }
+
+    bool operator!=(std::nullptr_t) const noexcept
+    {
+        return m_wpObserved.lock() != nullptr;
+    }
+
+    bool operator==(std::shared_ptr<T> sp) const noexcept
+    {
+        return m_wpObserved.lock() == sp;
+    }
+
+    template <class U>
+    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved);
+
 protected:
     void handle_notification() override
     {
         m_wpObserved.reset();
     }
 
-    friend obs_ptr<T> make_observer(std::shared_ptr<T> spObserved);
-
 private:
-    void add_observer(std::shared_ptr<IObserved> spNewObserved)
+    void add_observer(std::shared_ptr<T> spNewObserved)
     {
         remove_observer();
         if (spNewObserved == nullptr)
@@ -43,7 +59,8 @@ private:
             // Nothing more if set to nullptr
             return;
         }
-        spNewObserved->add_observer(this->std::enable_shared_from_this<obs_ptr<T>>::shared_from_this());
+        auto spThis = this->std::enable_shared_from_this<obs_ptr<T>>::shared_from_this();
+        spNewObserved->add_observer(spThis);
         m_wpObserved = spNewObserved;
     }
 
@@ -73,9 +90,9 @@ private:
 };
 
 template <class T>
-obs_ptr<T> make_observer(std::shared_ptr<T> spObserved)
+std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullptr)
 {
-    obs_ptr<T> pObserver;
-    pObserver.add_observer(spObserved);
+    std::shared_ptr<obs_ptr<T>> pObserver;
+    pObserver->add_observer(spObserved);
     return std::move(pObserver);
 }

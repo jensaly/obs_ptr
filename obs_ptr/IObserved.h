@@ -54,13 +54,13 @@ class IObserved
     {
         m_observers.push_back(spObserver);
     }
-    void remove_observer(IObserver *pObserver)
+    void remove_observer(std::shared_ptr<IObserver> spObserver)
     {
         for (auto it = m_observers.begin(); it != m_observers.end();)
         {
             if (auto sp = it->lock())
             {
-                if (sp.get() == pObserver)
+                if (sp == spObserver)
                 {
                     it = m_observers.erase(it);
                     return;

@@ -1,18 +1,25 @@
-#include "testclasses.h"
-/*
+#include "../obs_ptr/IObserved.h"
+#include "../obs_ptr/obs_ptr.h"
+#include <gtest/gtest.h>
+
+class SimpleObsTargetTestClass : public IObserved
+{
+    int a = 1;
+};
+
 TEST(BasicObsTest, DefaultConstruction)
 {
-    auto test = make_empty_observer<SimpleObsTargetTestClass>();
-    ASSERT_EQ(test->get_raw(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
+    auto test = make_observer<SimpleObsTargetTestClass>();
+    ASSERT_EQ(test, nullptr) << "Default-constructed obs_ptr is not null after construction.";
 }
 
 TEST(BasicObsTest, ConstructionWithTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
     auto test = make_observer(var);
-    ASSERT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
+    ASSERT_EQ(test, var) << "obs_ptr.get() does not return pointer it was constructed with.";
 }
-
+/*
 // Tests the IsObserver and Observers functions as well.
 TEST(BasicObsTest, AssignmentToTarget)
 {
