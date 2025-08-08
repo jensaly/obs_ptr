@@ -5,7 +5,7 @@
 #include <memory>
 
 template <class T>
-class obs_ptr : public IObserver, std::enable_shared_from_this<obs_ptr<T>>
+class obs_ptr : public IObserver, public std::enable_shared_from_this<obs_ptr<T>>
 {
 public:
     /*
@@ -41,6 +41,16 @@ public:
         return m_wpObserved.lock() == sp;
     }
 
+    obs_ptr<T> &operator=(std::shared_ptr<IObserved> &pOther)
+    {
+        add_observer(pOther);
+    }
+
+    obs_ptr<T> &get_obs()
+    {
+        return *this;
+    }
+
     template <class U>
     friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved);
 
@@ -59,7 +69,7 @@ private:
             // Nothing more if set to nullptr
             return;
         }
-        auto spThis = this->std::enable_shared_from_this<obs_ptr<T>>::shared_from_this();
+        auto spThis = this->shared_from_this();
         spNewObserved->add_observer(spThis);
         m_wpObserved = spNewObserved;
     }
@@ -92,7 +102,7 @@ private:
 template <class T>
 std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullptr)
 {
-    std::shared_ptr<obs_ptr<T>> pObserver;
+    auto pObserver = std::make_shared<obs_ptr<T>>();
     pObserver->add_observer(spObserved);
     return std::move(pObserver);
 }

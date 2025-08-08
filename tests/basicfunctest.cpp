@@ -10,32 +10,33 @@ class SimpleObsTargetTestClass : public IObserved
 TEST(BasicObsTest, DefaultConstruction)
 {
     auto test = make_observer<SimpleObsTargetTestClass>();
-    ASSERT_EQ(test, nullptr) << "Default-constructed obs_ptr is not null after construction.";
+    ASSERT_EQ(test->get_obs(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
 }
 
 TEST(BasicObsTest, ConstructionWithTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
     auto test = make_observer(var);
-    ASSERT_EQ(test, var) << "obs_ptr.get() does not return pointer it was constructed with.";
+    ASSERT_EQ(test->get_obs(), var) << "obs_ptr.get() does not return pointer it was constructed with.";
 }
-/*
+
 // Tests the IsObserver and Observers functions as well.
 TEST(BasicObsTest, AssignmentToTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test = make_empty_observer<SimpleObsTargetTestClass>();
+    auto test = make_observer<SimpleObsTargetTestClass>();
 
     ASSERT_EQ(var->Observers(), 0);
     ASSERT_FALSE(var->IsObserver(test));
 
-    test->set(var);
+    test = var;
 
     EXPECT_EQ(test->get_raw(), var.get()) << "obs_ptr.get() does not return pointer it was constructed with.";
     EXPECT_TRUE(var->IsObserver(test));
     EXPECT_EQ(var->Observers(), 1);
 }
 
+/*
 TEST(BasicObsTest, ScopedDestructionOfTarget)
 {
     obs_ptr<SimpleObsTargetTestClass> test;

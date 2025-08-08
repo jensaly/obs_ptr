@@ -54,6 +54,7 @@ class IObserved
     {
         m_observers.push_back(spObserver);
     }
+
     void remove_observer(std::shared_ptr<IObserver> spObserver)
     {
         for (auto it = m_observers.begin(); it != m_observers.end();)
