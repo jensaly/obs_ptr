@@ -109,10 +109,13 @@ public:
     {
         return m_observers.size();
     }
-    bool IsObserver(std::shared_ptr<IObserver> pObserver) const
+
+    // https://stackoverflow.com/questions/12301916/how-can-you-efficiently-check-whether-two-stdweak-ptr-pointers-are-pointing-to
+    bool IsObserver(const std::shared_ptr<IObserver> pObserver) const
     {
-        std::weak_ptr<IObserver> wpObserver = pObserver;
-        return true;
+        std::weak_ptr<IObserver> wpOtherObserver = pObserver;
+        return std::find_if(m_observers.begin(), m_observers.end(), [&wpOtherObserver](const std::weak_ptr<IObserver> &wpObserver)
+                            { return !wpOtherObserver.owner_before(wpObserver) && !wpObserver.owner_before(wpOtherObserver); }) != m_observers.end();
     }
 
     template <class T>

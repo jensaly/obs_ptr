@@ -26,6 +26,8 @@ public:
         remove_on_destruction();
     }
 
+    obs_ptr(const obs_ptr<T> &pOther) = delete;
+
     bool operator==(std::nullptr_t) const noexcept
     {
         return m_wpObserved.lock() == nullptr;
@@ -41,9 +43,19 @@ public:
         return m_wpObserved.lock() == sp;
     }
 
-    obs_ptr<T> &operator=(std::shared_ptr<IObserved> &pOther)
+    void set(const std::shared_ptr<T> &pOther)
     {
         add_observer(pOther);
+    }
+
+    void unset()
+    {
+        remove_observer();
+    }
+
+    bool is_set() const
+    {
+        return !m_wpObserved.expired() && m_wpObserved.lock() != nullptr;
     }
 
     obs_ptr<T> &get_obs()
@@ -54,6 +66,9 @@ public:
     template <class U>
     friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved);
 
+    template <class U>
+    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<obs_ptr<U>> spObserver);
+
 protected:
     void handle_notification() override
     {
@@ -63,6 +78,11 @@ protected:
 private:
     void add_observer(std::shared_ptr<T> spNewObserved)
     {
+        if (spNewObserved == m_wpObserved.lock())
+        {
+            // Do not set to observe same object
+            return;
+        }
         remove_observer();
         if (spNewObserved == nullptr)
         {
@@ -82,6 +102,7 @@ private:
             return;
         }
         spObserved->remove_observer(this->std::enable_shared_from_this<obs_ptr<T>>::shared_from_this());
+        m_wpObserved.reset();
     }
 
     // Destructor-safe
@@ -96,7 +117,7 @@ private:
         pObserved->remove_destructed_observer();
     }
 
-    std::weak_ptr<IObserved> m_wpObserved;
+    std::weak_ptr<T> m_wpObserved;
 };
 
 template <class T>
@@ -104,5 +125,12 @@ std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullpt
 {
     auto pObserver = std::make_shared<obs_ptr<T>>();
     pObserver->add_observer(spObserved);
+    return std::move(pObserver);
+}
+
+template <class T>
+std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<obs_ptr<T>> spObserver)
+{
+    auto pObserver = make_observer(spObserver->m_wpObserved.lock());
     return std::move(pObserver);
 }
