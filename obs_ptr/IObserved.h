@@ -120,4 +120,10 @@ public:
 
     template <class T>
     friend class obs_ptr;
+
+    template <class Archive>
+    void serialize(Archive &archive)
+    {
+        archive(m_observers);
+    }
 };

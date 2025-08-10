@@ -2,12 +2,23 @@
 #include "../obs_ptr/obs_ptr.h"
 #include <gtest/gtest.h>
 #include <cereal/archives/binary.hpp>
+#include <cereal/types/polymorphic.hpp>
 #include <fstream>
 
 class SimpleObsTargetTestClass : public IObserved
 {
     int a = 1;
+
+public:
+    template <class Archive>
+    void serialize(Archive &ar)
+    {
+        ar(a);
+    }
 };
+
+CEREAL_REGISTER_TYPE(SimpleObsTargetTestClass);
+CEREAL_REGISTER_POLYMORPHIC_RELATION(IObserved, SimpleObsTargetTestClass)
 
 TEST(BasicObsTest, DefaultConstruction)
 {
@@ -287,4 +298,13 @@ TEST(CerealTest, SerializationToBinary)
     std::string oarchiveName = "SerializationToBinaryOut";
     std::fstream oarchiveStream(oarchiveName, std::ios::binary);
     cereal::BinaryOutputArchive archive{oarchiveStream};
+
+    {
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        ptr->set(var);
+
+        archive(var);
+        archive(ptr);
+    }
 }
