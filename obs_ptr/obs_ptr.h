@@ -8,14 +8,6 @@ template <class T>
 class obs_ptr : public IObserver, public std::enable_shared_from_this<obs_ptr<T>>
 {
 public:
-    /*
-    explicit obs_ptr(std::shared_ptr<IObserved> spObserved)
-    {
-        m_wpObserved = spObserved;
-        // Register
-    }
-    */
-
     obs_ptr()
     {
         // Does nothing
@@ -28,19 +20,36 @@ public:
 
     obs_ptr(const obs_ptr<T> &pOther) = delete;
 
-    bool operator==(std::nullptr_t) const noexcept
-    {
-        return m_wpObserved.lock() == nullptr;
-    }
+    obs_ptr(obs_ptr<T> &&other) noexcept = delete;
 
     bool operator!=(std::nullptr_t) const noexcept
     {
         return m_wpObserved.lock() != nullptr;
     }
 
+    bool operator!=(std::shared_ptr<T> sp) const noexcept
+    {
+        return m_wpObserved.lock() != sp;
+    }
+
+    bool operator!=(const obs_ptr<T> &other) const noexcept
+    {
+        return m_wpObserved.lock() != other.m_wpObserved.lock();
+    }
+
+    bool operator==(std::nullptr_t) const noexcept
+    {
+        return m_wpObserved.lock() == nullptr;
+    }
+
     bool operator==(std::shared_ptr<T> sp) const noexcept
     {
         return m_wpObserved.lock() == sp;
+    }
+
+    bool operator==(const obs_ptr<T> &other) const noexcept
+    {
+        return m_wpObserved.lock() == other.m_wpObserved.lock();
     }
 
     void set(const std::shared_ptr<T> &pOther)
@@ -68,6 +77,9 @@ public:
 
     template <class U>
     friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<obs_ptr<U>> spObserver);
+
+    template <class U>
+    friend std::shared_ptr<obs_ptr<U>> move_observer(std::shared_ptr<obs_ptr<U>> spObserver);
 
 protected:
     void handle_notification() override
@@ -120,6 +132,32 @@ private:
     std::weak_ptr<T> m_wpObserved;
 };
 
+// nullptr on lhs
+template <class T>
+inline bool operator==(std::nullptr_t, const obs_ptr<T> &rhs) noexcept
+{
+    return rhs == nullptr;
+}
+
+template <class T>
+inline bool operator!=(std::nullptr_t, const obs_ptr<T> &rhs) noexcept
+{
+    return rhs != nullptr;
+}
+
+// shared_ptr<T> on lhs
+template <class T>
+inline bool operator==(const std::shared_ptr<T> &lhs, const obs_ptr<T> &rhs) noexcept
+{
+    return rhs == lhs;
+}
+
+template <class T>
+inline bool operator!=(const std::shared_ptr<T> &lhs, const obs_ptr<T> &rhs) noexcept
+{
+    return rhs != lhs;
+}
+
 template <class T>
 std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullptr)
 {
@@ -133,4 +171,26 @@ std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<obs_ptr<T>> spObserver
 {
     auto pObserver = make_observer(spObserver->m_wpObserved.lock());
     return std::move(pObserver);
+}
+
+template <class T>
+std::shared_ptr<obs_ptr<T>> move_observer(std::shared_ptr<obs_ptr<T>> spObserver)
+{
+    auto pObserver = make_observer(spObserver->m_wpObserved.lock());
+    spObserver->unset();
+    return std::move(pObserver);
+}
+
+template <class Archive, class T>
+void save(Archive &archive,
+          obs_ptr<T> const &m)
+{
+    archive(m.x, m.y, m.z);
+}
+
+template <class Archive>
+void load(Archive &archive,
+          obs_ptr<T> &m)
+{
+    archive(m.x, m.y, m.z);
 }

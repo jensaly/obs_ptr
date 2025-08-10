@@ -1,6 +1,8 @@
 #include "../obs_ptr/IObserved.h"
 #include "../obs_ptr/obs_ptr.h"
 #include <gtest/gtest.h>
+#include <cereal/archives/binary.hpp>
+#include <fstream>
 
 class SimpleObsTargetTestClass : public IObserved
 {
@@ -9,8 +11,12 @@ class SimpleObsTargetTestClass : public IObserved
 
 TEST(BasicObsTest, DefaultConstruction)
 {
-    auto test = make_observer<SimpleObsTargetTestClass>();
-    ASSERT_EQ(test->get_obs(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
+    auto ptr1 = make_observer<SimpleObsTargetTestClass>();
+    ASSERT_EQ(ptr1->get_obs(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
+
+    auto ptr2 = make_observer<SimpleObsTargetTestClass>();
+    EXPECT_EQ(ptr2->get_obs(), nullptr) << "Another default-constructed obs_ptr is not null.";
+    EXPECT_EQ(ptr1->get_obs(), ptr1->get_obs()) << "Two default-constructed obs_ptr do not compare equal.";
 }
 
 TEST(BasicObsTest, ConstructionWithTarget)
@@ -195,80 +201,90 @@ TEST(BasicObsTest, Copying)
     EXPECT_EQ(ptr3->get_obs(), nullptr);
 }
 
-/*
-// Assignment to another obs_ptr and to nullptr.
-TEST(BasicObsTest, AssignmentToOtherObs)
-{
-    auto var1 = std::make_shared<SimpleObsTargetTestClass>();
-    auto var2 = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test1 = make_observer(var1);
-    obs_ptr<SimpleObsTargetTestClass> test2 = make_observer(var2);
-    obs_ptr<SimpleObsTargetTestClass> test3;
-
-    // Assignment from an active obs_ptr to another active obs_ptr.
-    test1 = test2;
-    ASSERT_FALSE(var1->IsObserver(test1));
-    ASSERT_TRUE(var2->IsObserver(test1));
-    ASSERT_TRUE(var2->IsObserver(test2));
-    ASSERT_EQ(var1->Observers(), 0);
-    ASSERT_EQ(var2->Observers(), 2);
-
-    // Assignment from an active obs_ptr to an inactive obs_ptr
-    test2 = test3;
-    ASSERT_FALSE(var2->IsObserver(test2));
-    ASSERT_EQ(var2->Observers(), 1);
-    ASSERT_EQ(test2->get_raw(), nullptr);
-
-    // Assignment from an inactive obs_ptr to an active obs_ptr
-    test3 = test1;
-    ASSERT_TRUE(var2->IsObserver(test1));
-    ASSERT_TRUE(var2->IsObserver(test3));
-    ASSERT_EQ(var2->Observers(), 2);
-    ASSERT_EQ(test3->lock(), var2);
-}
-
 TEST(BasicObsTest, ComparisonOperators)
 {
     auto var1 = std::make_shared<SimpleObsTargetTestClass>();
     auto var2 = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test1 = make_observer(var1);
-    obs_ptr<SimpleObsTargetTestClass> test2 = make_observer(var2);
-    obs_ptr<SimpleObsTargetTestClass> test3 = make_observer(var1);
-    obs_ptr<SimpleObsTargetTestClass> test4;
+    auto pVar1_1 = make_observer(var1);
+    auto pVar2_1 = make_observer(var2);
+    auto pVar1_2 = make_observer(var1);
+    auto pNull = make_observer<SimpleObsTargetTestClass>();
 
     // Equality operator between obs_ptrs
-    ASSERT_FALSE(test1 == test2);
-    ASSERT_TRUE(test1 == test1);
-    ASSERT_TRUE(test1 == test3);
+    EXPECT_NE(pVar1_1->get_obs(), pVar2_1->get_obs());
+    EXPECT_EQ(pVar1_1->get_obs(), pVar1_1->get_obs());
+    EXPECT_EQ(pVar1_1->get_obs(), pVar1_2->get_obs());
 
     // Nullptr comparison
-    ASSERT_FALSE(test1 == nullptr);
-    ASSERT_TRUE(test4 == nullptr);
+    EXPECT_NE(pVar1_1->get_obs(), nullptr);
+    EXPECT_EQ(pNull->get_obs(), nullptr);
+
+    // Cross-type comparisons with nullptr
+    EXPECT_TRUE(nullptr == pNull->get_obs());
+    EXPECT_TRUE(pNull->get_obs() == nullptr);
+    EXPECT_FALSE(nullptr != pNull->get_obs());
+    EXPECT_FALSE(pNull->get_obs() != nullptr);
+
+    EXPECT_FALSE(nullptr == pVar1_1->get_obs());
+    EXPECT_FALSE(pVar1_1->get_obs() == nullptr);
+    EXPECT_TRUE(nullptr != pVar1_1->get_obs());
+    EXPECT_TRUE(pVar1_1->get_obs() != nullptr);
+
+    // Cross-type comparisons with shared_ptr<T>
+    EXPECT_TRUE(var1 == pVar1_1->get_obs());
+    EXPECT_TRUE(pVar1_1->get_obs() == var1);
+    EXPECT_FALSE(var1 != pVar1_1->get_obs());
+    EXPECT_FALSE(pVar1_1->get_obs() != var1);
+
+    EXPECT_FALSE(var1 == pVar2_1->get_obs());
+    EXPECT_FALSE(pVar2_1->get_obs() == var1);
+    EXPECT_TRUE(var1 != pVar2_1->get_obs());
+    EXPECT_TRUE(pVar2_1->get_obs() != var1);
+
+    // obs_ptr vs obs_ptr
+    EXPECT_TRUE(pVar1_1->get_obs() == pVar1_2->get_obs());
+    EXPECT_FALSE(pVar1_1->get_obs() != pVar1_2->get_obs());
+
+    EXPECT_FALSE(pVar1_1->get_obs() == pVar2_1->get_obs());
+    EXPECT_TRUE(pVar1_1->get_obs() != pVar2_1->get_obs());
 }
 
-TEST(BasicObsTest, MoveConstructor)
+TEST(BasicObsTest, MoveConstructorPreservesObservation)
 {
-    auto var1 = std::make_shared<SimpleObsTargetTestClass>();
-    auto var2 = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test1 = make_observer(var1);
-    obs_ptr<SimpleObsTargetTestClass> test2 = make_observer(var2);
-}
-
-TEST(BasicObsTest, DestructionOfPointer)
-{
-    auto var = std::make_shared<SimpleObsTargetTestClass>();
-    obs_ptr<SimpleObsTargetTestClass> test1 = make_observer(var);
     {
-        obs_ptr<SimpleObsTargetTestClass> test2 = make_observer(var);
-        ASSERT_TRUE(var->IsObserver(test2));
-        ASSERT_EQ(var->Observers(), 2);
+        // Move construction on an empty obs_ptr
+
+        auto ptrOrigEmpty = make_observer<SimpleObsTargetTestClass>();
+        auto ptrMovedEmpty = make_observer(ptrOrigEmpty);
+
+        EXPECT_EQ(ptrOrigEmpty->get_obs(), nullptr);
+        EXPECT_EQ(ptrMovedEmpty->get_obs(), nullptr);
     }
-    ASSERT_EQ(var->Observers(), 1);
+    {
+        // Move construction on an obs_ptr with stuff
+
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        ASSERT_EQ(var->Observers(), 0);
+
+        auto ptrOrig = make_observer(var);
+        EXPECT_TRUE(var->IsObserver(ptrOrig));
+        EXPECT_EQ(var->Observers(), 1);
+
+        auto ptrMoved = move_observer(ptrOrig);
+
+        EXPECT_TRUE(var->IsObserver(ptrMoved));
+        EXPECT_FALSE(var->IsObserver(ptrOrig));
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_EQ(ptrMoved->get_obs(), var);
+        EXPECT_EQ(ptrOrig->get_obs(), nullptr);
+        EXPECT_FALSE(ptrOrig->is_set());
+        EXPECT_TRUE(ptrMoved->is_set());
+    }
 }
 
-int main(int argc, char **argv)
+TEST(CerealTest, SerializationToBinary)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    std::string oarchiveName = "SerializationToBinaryOut";
+    std::fstream oarchiveStream(oarchiveName, std::ios::binary);
+    cereal::BinaryOutputArchive archive{oarchiveStream};
 }
-    */
