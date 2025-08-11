@@ -13,12 +13,15 @@ public:
     template <class Archive>
     void serialize(Archive &ar)
     {
-        ar(a);
+        ar(cereal::base_class<IObserved>(this), a);
     }
 };
 
 CEREAL_REGISTER_TYPE(SimpleObsTargetTestClass);
 CEREAL_REGISTER_POLYMORPHIC_RELATION(IObserved, SimpleObsTargetTestClass)
+
+CEREAL_REGISTER_TYPE(obs_ptr<SimpleObsTargetTestClass>);
+CEREAL_REGISTER_POLYMORPHIC_RELATION(IObserver, obs_ptr<SimpleObsTargetTestClass>)
 
 TEST(BasicObsTest, DefaultConstruction)
 {
@@ -293,18 +296,146 @@ TEST(BasicObsTest, MoveConstructorPreservesObservation)
     }
 }
 
+// Basic serialization test
 TEST(CerealTest, SerializationToBinary)
 {
-    std::string oarchiveName = "SerializationToBinaryOut";
-    std::fstream oarchiveStream(oarchiveName, std::ios::binary);
-    cereal::BinaryOutputArchive archive{oarchiveStream};
+    std::stringstream ss;
+
+    ASSERT_TRUE(ss.good());
 
     {
+        cereal::BinaryOutputArchive archive{ss};
+
         auto ptr = make_observer<SimpleObsTargetTestClass>();
         auto var = std::make_shared<SimpleObsTargetTestClass>();
         ptr->set(var);
 
-        archive(var);
-        archive(ptr);
+        EXPECT_NO_THROW(archive(var));
+        EXPECT_NO_THROW(archive(ptr));
+    }
+    {
+        cereal::BinaryInputArchive archive{ss};
+
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+
+        EXPECT_NO_THROW(archive(var));
+        EXPECT_NO_THROW(archive(ptr));
+
+        EXPECT_TRUE(ptr->is_set());
+        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_TRUE(var->IsObserver(ptr));
+    }
+}
+
+TEST(CerealTest, SerializeUnsetObserver)
+{
+    // Serialize an unset observer (no target saved).
+    std::stringstream ss;
+    {
+        cereal::BinaryOutputArchive oarchive{ss};
+        auto ptr = make_observer<SimpleObsTargetTestClass>(); // default, unset
+        EXPECT_FALSE(ptr->is_set());
+        EXPECT_NO_THROW(oarchive(ptr));
+    }
+
+    // Deserialize into a fresh observer and verify it remains unset.
+    {
+        cereal::BinaryInputArchive iarchive{ss};
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        EXPECT_NO_THROW(iarchive(ptr));
+        EXPECT_FALSE(ptr->is_set());
+        EXPECT_EQ(ptr->get_obs(), nullptr);
+    }
+}
+
+TEST(CerealTest, SerializeMultipleObserversToSameTarget)
+{
+    std::stringstream ss;
+    {
+        cereal::BinaryOutputArchive archive{ss};
+
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        auto p1 = make_observer(var);
+        auto p2 = make_observer(var);
+        auto p3 = make_observer(var);
+
+        // sanity before serialize
+        EXPECT_EQ(var->Observers(), 3);
+        EXPECT_TRUE(var->IsObserver(p1));
+        EXPECT_TRUE(var->IsObserver(p2));
+        EXPECT_TRUE(var->IsObserver(p3));
+
+        // Save target first, then the observers (order required so weak_ptr can be resolved)
+        EXPECT_NO_THROW(archive(var));
+        EXPECT_NO_THROW(archive(p1));
+        EXPECT_NO_THROW(archive(p2));
+        EXPECT_NO_THROW(archive(p3));
+    }
+
+    {
+        cereal::BinaryInputArchive archive{ss};
+
+        // Load target and three observers sequentially
+        auto varL = std::make_shared<SimpleObsTargetTestClass>();
+        auto p1L = make_observer<SimpleObsTargetTestClass>();
+        auto p2L = make_observer<SimpleObsTargetTestClass>();
+        auto p3L = make_observer<SimpleObsTargetTestClass>();
+
+        EXPECT_NO_THROW(archive(varL));
+        EXPECT_NO_THROW(archive(p1L));
+        EXPECT_NO_THROW(archive(p2L));
+        EXPECT_NO_THROW(archive(p3L));
+
+        // All observers must point to same target instance (varL) and be registered
+        EXPECT_TRUE(p1L->is_set());
+        EXPECT_TRUE(p2L->is_set());
+        EXPECT_TRUE(p3L->is_set());
+
+        EXPECT_EQ(p1L->get_obs(), varL);
+        EXPECT_EQ(p2L->get_obs(), varL);
+        EXPECT_EQ(p3L->get_obs(), varL);
+
+        EXPECT_EQ(varL->Observers(), 3);
+        EXPECT_TRUE(varL->IsObserver(p1L));
+        EXPECT_TRUE(varL->IsObserver(p2L));
+        EXPECT_TRUE(varL->IsObserver(p3L));
+    }
+}
+
+TEST(CerealTest, SerializeAfterMoveObserver)
+{
+    std::stringstream ss;
+    {
+        cereal::BinaryOutputArchive archive{ss};
+
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        auto orig = make_observer(var);
+        // Move semantics via helper
+        auto moved = move_observer(orig);
+
+        // orig should be unset after move_observer
+        ASSERT_FALSE(orig->is_set());
+        ASSERT_TRUE(moved->is_set());
+        ASSERT_EQ(var->Observers(), 1);
+
+        EXPECT_NO_THROW(archive(var));
+        EXPECT_NO_THROW(archive(moved));
+    }
+
+    {
+        cereal::BinaryInputArchive archive{ss};
+
+        auto varL = std::make_shared<SimpleObsTargetTestClass>();
+        auto movedL = make_observer<SimpleObsTargetTestClass>();
+
+        EXPECT_NO_THROW(archive(varL));
+        EXPECT_NO_THROW(archive(movedL));
+
+        EXPECT_TRUE(movedL->is_set());
+        EXPECT_EQ(movedL->get_obs(), varL);
+        EXPECT_EQ(varL->Observers(), 1);
+        EXPECT_TRUE(varL->IsObserver(movedL));
     }
 }

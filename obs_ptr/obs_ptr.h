@@ -2,6 +2,7 @@
 #include "IObserved.h"
 #include "IObserver.h"
 #include <cereal/types/base_class.hpp>
+#include <cereal/types/memory.hpp>
 #include <memory>
 
 template <class T>
@@ -81,12 +82,11 @@ public:
     template <class U>
     friend std::shared_ptr<obs_ptr<U>> move_observer(std::shared_ptr<obs_ptr<U>> spObserver);
 
-    // Friend cereal save/load
-    template <class Archive, class U>
-    friend void save(Archive &, obs_ptr<U> const &);
-
-    template <class Archive, class U>
-    friend void load(Archive &, obs_ptr<U> &);
+    template <class Archive>
+    void serialize(Archive &ar)
+    {
+        ar(m_wpObserved);
+    }
 
 protected:
     void handle_notification() override
@@ -186,16 +186,4 @@ std::shared_ptr<obs_ptr<T>> move_observer(std::shared_ptr<obs_ptr<T>> spObserver
     auto pObserver = make_observer(spObserver->m_wpObserved.lock());
     spObserver->unset();
     return std::move(pObserver);
-}
-
-template <class Archive, class T>
-void save(Archive &ar, obs_ptr<T> const &o)
-{
-    ar(o.m_wpObserved);
-}
-
-template <class Archive, class T>
-void load(Archive &ar, obs_ptr<T> &o)
-{
-    ar(o.m_wpObserved);
 }

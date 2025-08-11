@@ -11,6 +11,8 @@
 // ========================
 // Third-Party Library Includes
 // ========================
+#include <cereal/types/vector.hpp>
+#include <cereal/types/memory.hpp>
 
 // ========================
 // Local Project Includes
