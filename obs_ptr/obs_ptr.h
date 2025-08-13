@@ -53,14 +53,26 @@ public:
         return m_wpObserved.lock() == other.m_wpObserved.lock();
     }
 
-    void set(const std::shared_ptr<T> &pOther)
+    void set(const std::shared_ptr<T> &pOther, std::function<void()> cb = {})
     {
         add_observer(pOther);
+        set_cb(cb);
     }
 
     void unset()
     {
         remove_observer();
+        unset_cb();
+    }
+
+    void set_cb(std::function<void()> cb)
+    {
+        m_cb = cb;
+    }
+
+    void unset_cb()
+    {
+        m_cb = {};
     }
 
     bool is_set() const
@@ -74,13 +86,13 @@ public:
     }
 
     template <class U>
-    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved);
+    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved, std::function<void()> cb);
 
     template <class U>
-    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<obs_ptr<U>> spObserver);
+    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<obs_ptr<U>> spObserver, std::function<void()> cb);
 
     template <class U>
-    friend std::shared_ptr<obs_ptr<U>> move_observer(std::shared_ptr<obs_ptr<U>> spObserver);
+    friend std::shared_ptr<obs_ptr<U>> move_observer(std::shared_ptr<obs_ptr<U>> spObserver, std::function<void()> cb);
 
     template <class Archive>
     void serialize(Archive &ar)
@@ -91,6 +103,10 @@ public:
 protected:
     void handle_notification() override
     {
+        if (m_cb)
+        {
+            m_cb();
+        }
         m_wpObserved.reset();
     }
 
@@ -137,6 +153,7 @@ private:
     }
 
     std::weak_ptr<T> m_wpObserved;
+    std::function<void()> m_cb;
 };
 
 // nullptr on lhs
@@ -166,24 +183,26 @@ inline bool operator!=(const std::shared_ptr<T> &lhs, const obs_ptr<T> &rhs) noe
 }
 
 template <class T>
-std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullptr)
+std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullptr, std::function<void()> cb = {})
 {
     auto pObserver = std::make_shared<obs_ptr<T>>();
+    pObserver->set_cb(cb);
     pObserver->add_observer(spObserved);
     return std::move(pObserver);
 }
 
 template <class T>
-std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<obs_ptr<T>> spObserver)
+std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<obs_ptr<T>> spObserver, std::function<void()> cb = {})
 {
     auto pObserver = make_observer(spObserver->m_wpObserved.lock());
+    pObserver->set_cb(cb);
     return std::move(pObserver);
 }
 
 template <class T>
-std::shared_ptr<obs_ptr<T>> move_observer(std::shared_ptr<obs_ptr<T>> spObserver)
+std::shared_ptr<obs_ptr<T>> move_observer(std::shared_ptr<obs_ptr<T>> spObserver, std::function<void()> cb = {})
 {
-    auto pObserver = make_observer(spObserver->m_wpObserved.lock());
+    auto pObserver = make_observer(spObserver->m_wpObserved.lock(), cb);
     spObserver->unset();
     return std::move(pObserver);
 }

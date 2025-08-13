@@ -509,3 +509,167 @@ TEST(CerealTest, DestructionAfterSerialize)
         EXPECT_TRUE(varLocal->IsObserver(ptr));
     }
 }
+
+struct ObsPtrOwner
+{
+    int a = 1;
+    std::shared_ptr<obs_ptr<SimpleObsTargetTestClass>> pObserver;
+    void handle_target_deletion()
+    {
+        a++;
+    }
+
+    template <class Archive>
+    void save(Archive &archive)
+    {
+        archive(pObserver);
+    }
+};
+
+TEST(CallbackObsTest, ConstructionAndDestruction)
+{
+    auto obsPtrOwner = ObsPtrOwner();
+    auto &ptr = obsPtrOwner.pObserver;
+    ptr = make_observer<SimpleObsTargetTestClass>();
+
+    ASSERT_EQ(obsPtrOwner.a, 1);
+
+    {
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+
+        ptr->set(var, std::bind(&ObsPtrOwner::handle_target_deletion, &obsPtrOwner));
+
+        ASSERT_TRUE(ptr->is_set());
+        EXPECT_TRUE(var->IsObserver(ptr));
+        EXPECT_EQ(var->Observers(), 1);
+
+        var.reset();
+    }
+
+    ASSERT_EQ(obsPtrOwner.a, 2);
+
+    {
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+
+        ptr->set(var);
+
+        ASSERT_TRUE(ptr->is_set());
+        EXPECT_TRUE(var->IsObserver(ptr));
+        EXPECT_EQ(var->Observers(), 1);
+
+        var.reset();
+    }
+
+    ASSERT_EQ(obsPtrOwner.a, 2);
+
+    auto var1 = std::make_shared<SimpleObsTargetTestClass>();
+
+    {
+        auto var2 = std::make_shared<SimpleObsTargetTestClass>();
+
+        ptr->set(var1, std::bind(&ObsPtrOwner::handle_target_deletion, &obsPtrOwner));
+        ptr->set(var2, std::bind(&ObsPtrOwner::handle_target_deletion, &obsPtrOwner));
+    }
+    var1.reset();
+
+    ASSERT_EQ(obsPtrOwner.a, 3);
+}
+
+struct Observed1 : public IObserved
+{
+    int a = 0;
+};
+
+struct Observed2 : public IObserved
+{
+    float a = 1.0;
+};
+using obs_ptr_Observed1SPtr = std::shared_ptr<obs_ptr<Observed1>>;
+using obs_ptr_Observed2SPtr = std::shared_ptr<obs_ptr<Observed2>>;
+using obs_variant = std::variant<std::monostate, obs_ptr_Observed1SPtr, obs_ptr_Observed2SPtr>;
+struct ObsPtrVariantOwner
+{
+    int a = 1;
+    obs_variant obsVariant;
+    void handle_target_deletion()
+    {
+        obsVariant = std::monostate();
+    }
+
+    template <typename T>
+    void SetTarget(T pTarget)
+    {
+        obsVariant = make_observer(pTarget, std::bind(&ObsPtrVariantOwner::handle_target_deletion, this));
+    }
+};
+
+TEST(CallbackObsTest, VariantAssignment)
+{
+    auto pOwner = std::make_shared<ObsPtrVariantOwner>();
+
+    EXPECT_EQ(pOwner->obsVariant.index(), 0);
+
+    {
+        auto observed1 = std::make_shared<Observed1>();
+
+        pOwner->SetTarget(observed1);
+
+        EXPECT_EQ(pOwner->obsVariant.index(), 1);
+        auto ptr = std::get<obs_ptr_Observed1SPtr>(pOwner->obsVariant);
+        EXPECT_TRUE(ptr->is_set());
+        EXPECT_TRUE(observed1->IsObserver(ptr));
+        EXPECT_EQ(observed1->Observers(), 1);
+    }
+
+    EXPECT_EQ(pOwner->obsVariant.index(), 0);
+
+    {
+        auto observed2 = std::make_shared<Observed2>();
+
+        pOwner->SetTarget(observed2);
+
+        EXPECT_EQ(pOwner->obsVariant.index(), 2);
+    }
+
+    EXPECT_EQ(pOwner->obsVariant.index(), 0);
+
+    {
+        auto observed2 = std::make_shared<Observed2>();
+
+        pOwner->SetTarget(observed2);
+
+        pOwner.reset();
+    }
+}
+
+TEST(CerealTest, CallbackReconstruction)
+{
+    std::stringstream ss;
+
+    ASSERT_TRUE(ss.good());
+
+    {
+        cereal::BinaryOutputArchive archive{ss};
+
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        ptr->set(var, );
+
+        EXPECT_NO_THROW(archive(var));
+        EXPECT_NO_THROW(archive(ptr));
+    }
+    {
+        cereal::BinaryInputArchive archive{ss};
+
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+
+        ASSERT_NO_THROW(archive(var));
+        ASSERT_NO_THROW(archive(ptr));
+
+        EXPECT_TRUE(ptr->is_set());
+        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_TRUE(var->IsObserver(ptr));
+    }
+}

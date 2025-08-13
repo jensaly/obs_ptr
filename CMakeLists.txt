@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+
 project(obs_ptr)
 
 include(FetchContent)
@@ -14,7 +19,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/USCiLab/cereal.git
     GIT_TAG        v1.3.2 # Or the desired version tag/commit hash
 )
-    FetchContent_MakeAvailable(cereal)
+FetchContent_MakeAvailable(cereal)
 
 set_target_properties(gtest PROPERTIES CXX_CLANG_TIDY "")
 set_target_properties(gtest_main PROPERTIES CXX_CLANG_TIDY "")
