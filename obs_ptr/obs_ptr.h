@@ -4,6 +4,7 @@
 #include <cereal/types/base_class.hpp>
 #include <cereal/types/memory.hpp>
 #include <memory>
+#include <type_traits>
 
 template <class T>
 class obs_ptr : public IObserver, public std::enable_shared_from_this<obs_ptr<T>>
@@ -89,7 +90,7 @@ public:
     friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<U> spObserved, std::function<void()> cb);
 
     template <class U>
-    friend std::shared_ptr<obs_ptr<U>> make_observer(std::shared_ptr<obs_ptr<U>> spObserver, std::function<void()> cb);
+    friend std::shared_ptr<obs_ptr<U>> copy_observer(std::shared_ptr<obs_ptr<U>> spObserver, std::function<void()> cb);
 
     template <class U>
     friend std::shared_ptr<obs_ptr<U>> move_observer(std::shared_ptr<obs_ptr<U>> spObserver, std::function<void()> cb);
@@ -192,8 +193,13 @@ std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<T> spObserved = nullpt
 }
 
 template <class T>
-std::shared_ptr<obs_ptr<T>> make_observer(std::shared_ptr<obs_ptr<T>> spObserver, std::function<void()> cb = {})
+std::shared_ptr<obs_ptr<T>> copy_observer(std::shared_ptr<obs_ptr<T>> spObserver, std::function<void()> cb = {})
 {
+    // We must copy from something. Makes no sense otherwise
+    if (spObserver == nullptr)
+    {
+        return nullptr;
+    }
     auto pObserver = make_observer(spObserver->m_wpObserved.lock());
     pObserver->set_cb(cb);
     return std::move(pObserver);

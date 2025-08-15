@@ -188,8 +188,8 @@ TEST(BasicObsTest, Copying)
     auto var = std::make_shared<SimpleObsTargetTestClass>();
     ptr1->set(var);
 
-    auto ptr2 = make_observer(ptr1); // Copy
-    auto ptr3 = make_observer(ptr2); // Copy from a copy
+    auto ptr2 = copy_observer(ptr1); // Copy
+    auto ptr3 = copy_observer(ptr2); // Copy from a copy
 
     EXPECT_EQ(ptr1->get_obs(), var);
     EXPECT_EQ(ptr2->get_obs(), var);
@@ -269,7 +269,7 @@ TEST(BasicObsTest, MoveConstructorPreservesObservation)
         // Move construction on an empty obs_ptr
 
         auto ptrOrigEmpty = make_observer<SimpleObsTargetTestClass>();
-        auto ptrMovedEmpty = make_observer(ptrOrigEmpty);
+        auto ptrMovedEmpty = copy_observer(ptrOrigEmpty);
 
         EXPECT_EQ(ptrOrigEmpty->get_obs(), nullptr);
         EXPECT_EQ(ptrMovedEmpty->get_obs(), nullptr);
@@ -644,6 +644,7 @@ TEST(CallbackObsTest, VariantAssignment)
 
 TEST(CerealTest, CallbackReconstruction)
 {
+    size_t calls = 0;
     std::stringstream ss;
 
     ASSERT_TRUE(ss.good());
@@ -653,15 +654,20 @@ TEST(CerealTest, CallbackReconstruction)
 
         auto ptr = make_observer<SimpleObsTargetTestClass>();
         auto var = std::make_shared<SimpleObsTargetTestClass>();
-        ptr->set(var, );
+        ptr->set(var, [&]()
+                 { calls++; });
 
         EXPECT_NO_THROW(archive(var));
         EXPECT_NO_THROW(archive(ptr));
     }
+
+    EXPECT_EQ(calls, 1);
+
     {
         cereal::BinaryInputArchive archive{ss};
 
-        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        auto ptr = make_observer<SimpleObsTargetTestClass>(nullptr, [&]()
+                                                           { calls++; });
         auto var = std::make_shared<SimpleObsTargetTestClass>();
 
         ASSERT_NO_THROW(archive(var));
@@ -671,5 +677,9 @@ TEST(CerealTest, CallbackReconstruction)
         EXPECT_EQ(ptr->get_obs(), var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
+
+        var.reset();
     }
+
+    EXPECT_EQ(calls, 2);
 }
