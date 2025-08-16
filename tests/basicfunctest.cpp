@@ -510,19 +510,76 @@ TEST(CerealTest, DestructionAfterSerialize)
     }
 }
 
+TEST(CerealTest, SomePointersNotSerialized)
+{
+    // GUI may use obs_ptr. We do not want to serialize these.
+    std::stringstream ss;
+    auto var = std::make_shared<SimpleObsTargetTestClass>();
+    {
+        // Create two pointers, serialize only one
+        cereal::BinaryOutputArchive archive{ss};
+        auto ptr1 = make_observer(var);
+        auto ptr2 = make_observer(var);
+
+        ASSERT_NO_THROW(archive(var));
+        ASSERT_NO_THROW(archive(ptr1));
+
+        EXPECT_TRUE(ptr1->is_set());
+        EXPECT_TRUE(ptr2->is_set());
+        EXPECT_EQ(ptr1->get_obs(), var);
+        EXPECT_EQ(ptr2->get_obs(), var);
+        EXPECT_EQ(var->Observers(), 2);
+        EXPECT_TRUE(var->IsObserver(ptr1));
+        EXPECT_TRUE(var->IsObserver(ptr2));
+    }
+
+    EXPECT_EQ(var->Observers(), 0);
+    var.reset();
+
+    {
+        // Recreate the serialized pointer, other pointer does not yet exist
+        cereal::BinaryInputArchive archive{ss};
+
+        var = std::make_shared<SimpleObsTargetTestClass>();
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+
+        ASSERT_NO_THROW(archive(var));
+        ASSERT_NO_THROW(archive(ptr));
+
+        // Should now only have observer. Other should NOT have been created
+        EXPECT_TRUE(ptr->is_set());
+        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_TRUE(var->IsObserver(ptr));
+    }
+}
+
 struct ObsPtrOwner
 {
     int a = 1;
     std::shared_ptr<obs_ptr<SimpleObsTargetTestClass>> pObserver;
+
+    ObsPtrOwner()
+    {
+        pObserver = make_observer<SimpleObsTargetTestClass>(nullptr, std::bind(&ObsPtrOwner::handle_target_deletion, this));
+    }
+
     void handle_target_deletion()
     {
         a++;
     }
 
     template <class Archive>
-    void save(Archive &archive)
+    void save(Archive &archive) const
     {
         archive(pObserver);
+    }
+
+    template <class Archive>
+    void load(Archive &archive)
+    {
+        archive(pObserver);
+        pObserver->set_cb(std::bind(&ObsPtrOwner::handle_target_deletion, this));
     }
 };
 
@@ -536,7 +593,6 @@ TEST(CallbackObsTest, ConstructionAndDestruction)
 
     {
         auto var = std::make_shared<SimpleObsTargetTestClass>();
-
         ptr->set(var, std::bind(&ObsPtrOwner::handle_target_deletion, &obsPtrOwner));
 
         ASSERT_TRUE(ptr->is_set());
@@ -551,7 +607,7 @@ TEST(CallbackObsTest, ConstructionAndDestruction)
     {
         auto var = std::make_shared<SimpleObsTargetTestClass>();
 
-        ptr->set(var);
+        ptr->set(var, nullptr); // Need to explicitly deregister the callback
 
         ASSERT_TRUE(ptr->is_set());
         EXPECT_TRUE(var->IsObserver(ptr));
@@ -644,7 +700,7 @@ TEST(CallbackObsTest, VariantAssignment)
 
 TEST(CerealTest, CallbackReconstruction)
 {
-    size_t calls = 0;
+    auto obsPtrOwner = ObsPtrOwner();
     std::stringstream ss;
 
     ASSERT_TRUE(ss.good());
@@ -652,34 +708,32 @@ TEST(CerealTest, CallbackReconstruction)
     {
         cereal::BinaryOutputArchive archive{ss};
 
-        auto ptr = make_observer<SimpleObsTargetTestClass>();
         auto var = std::make_shared<SimpleObsTargetTestClass>();
-        ptr->set(var, [&]()
-                 { calls++; });
+        obsPtrOwner.pObserver->set(var);
 
         EXPECT_NO_THROW(archive(var));
-        EXPECT_NO_THROW(archive(ptr));
-    }
-
-    EXPECT_EQ(calls, 1);
-
-    {
-        cereal::BinaryInputArchive archive{ss};
-
-        auto ptr = make_observer<SimpleObsTargetTestClass>(nullptr, [&]()
-                                                           { calls++; });
-        auto var = std::make_shared<SimpleObsTargetTestClass>();
-
-        ASSERT_NO_THROW(archive(var));
-        ASSERT_NO_THROW(archive(ptr));
-
-        EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), var);
-        EXPECT_EQ(var->Observers(), 1);
-        EXPECT_TRUE(var->IsObserver(ptr));
+        EXPECT_NO_THROW(archive(obsPtrOwner));
 
         var.reset();
     }
 
-    EXPECT_EQ(calls, 2);
+    EXPECT_EQ(obsPtrOwner.a, 2);
+
+    {
+        cereal::BinaryInputArchive archive{ss};
+
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+
+        ASSERT_NO_THROW(archive(var));
+        ASSERT_NO_THROW(archive(obsPtrOwner));
+
+        EXPECT_TRUE(obsPtrOwner.pObserver->is_set());
+        EXPECT_EQ(obsPtrOwner.pObserver->get_obs(), var);
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_TRUE(var->IsObserver(obsPtrOwner.pObserver));
+
+        var.reset();
+    }
+
+    EXPECT_EQ(obsPtrOwner.a, 3);
 }

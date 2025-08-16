@@ -54,10 +54,15 @@ public:
         return m_wpObserved.lock() == other.m_wpObserved.lock();
     }
 
-    void set(const std::shared_ptr<T> &pOther, std::function<void()> cb = {})
+    void set(const std::shared_ptr<T> &pOther, std::function<void()> cb)
     {
         add_observer(pOther);
         set_cb(cb);
+    }
+
+    void set(const std::shared_ptr<T> &pOther)
+    {
+        add_observer(pOther);
     }
 
     void unset()
