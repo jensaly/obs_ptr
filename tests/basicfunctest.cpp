@@ -11,7 +11,13 @@ class SimpleObsTargetTestClass : public IObserved
 
 public:
     template <class Archive>
-    void serialize(Archive &ar)
+    void save(Archive &ar) const
+    {
+        ar(cereal::base_class<IObserved>(this), a);
+    }
+
+    template <class Archive>
+    void load(Archive &ar)
     {
         ar(cereal::base_class<IObserved>(this), a);
     }
@@ -537,14 +543,16 @@ TEST(CerealTest, SomePointersNotSerialized)
     var.reset();
 
     {
-        // Recreate the serialized pointer, other pointer does not yet exist
-        cereal::BinaryInputArchive archive{ss};
 
         var = std::make_shared<SimpleObsTargetTestClass>();
         auto ptr = make_observer<SimpleObsTargetTestClass>();
+        // Recreate the serialized pointer, other pointer does not yet exist
+        {
+            cereal::BinaryInputArchive archive{ss};
 
-        ASSERT_NO_THROW(archive(var));
-        ASSERT_NO_THROW(archive(ptr));
+            ASSERT_NO_THROW(archive(var));
+            ASSERT_NO_THROW(archive(ptr));
+        }
 
         // Should now only have observer. Other should NOT have been created
         EXPECT_TRUE(ptr->is_set());
@@ -552,6 +560,48 @@ TEST(CerealTest, SomePointersNotSerialized)
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
     }
+}
+
+TEST(CerealTest, StaticPointerNotSerialized)
+{
+    // GUI may use obs_ptr. We do not want to serialize these.
+    std::stringstream ss;
+    static auto pStatic = make_observer<SimpleObsTargetTestClass>();
+    {
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        // Create two pointers, serialize only one
+        cereal::BinaryOutputArchive archive{ss};
+        auto ptr = make_observer(var);
+        pStatic->set(var);
+
+        ASSERT_EQ(var->Observers(), 2);
+        ASSERT_TRUE(var->IsObserver(ptr));
+        ASSERT_TRUE(var->IsObserver(pStatic));
+
+        ASSERT_NO_THROW(archive(var));
+        ASSERT_NO_THROW(archive(ptr));
+    }
+
+    ASSERT_FALSE(pStatic->is_set());
+
+    {
+
+        auto var = std::make_shared<SimpleObsTargetTestClass>();
+        auto ptr = make_observer<SimpleObsTargetTestClass>();
+        // Recreate the serialized pointer, other pointer does not yet exist
+        {
+            cereal::BinaryInputArchive archive{ss};
+
+            ASSERT_NO_THROW(archive(var));
+            ASSERT_NO_THROW(archive(ptr));
+        }
+
+        EXPECT_EQ(var->Observers(), 1);
+        EXPECT_TRUE(var->IsObserver(ptr));
+        EXPECT_FALSE(var->IsObserver(pStatic));
+    }
+
+    ASSERT_FALSE(pStatic->is_set());
 }
 
 struct ObsPtrOwner

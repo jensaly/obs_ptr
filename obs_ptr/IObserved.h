@@ -124,7 +124,13 @@ public:
     friend class obs_ptr;
 
     template <class Archive>
-    void serialize(Archive &archive)
+    void save(Archive &archive) const
+    {
+        archive(m_observers);
+    }
+
+    template <class Archive>
+    void load(Archive &archive)
     {
         archive(m_observers);
     }
