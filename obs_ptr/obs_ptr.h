@@ -1,10 +1,29 @@
 #pragma once
-#include "IObserved.h"
-#include "IObserver.h"
+
+// ========================
+// Standard Library Includes
+// ========================
+#include <memory>
+
+// ========================
+// Third-Party Library Includes
+// ========================
 #include <cereal/types/base_class.hpp>
 #include <cereal/types/memory.hpp>
-#include <memory>
-#include <type_traits>
+
+// ========================
+// Local Project Includes
+// ========================
+#include "IObserved.h"
+#include "IObserver.h"
+
+// ========================
+// Namespace Usings
+// ========================
+
+// ========================
+// Forward Declarations
+// ========================
 
 template <class T>
 class obs_ptr : public IObserver, public std::enable_shared_from_this<obs_ptr<T>>
@@ -84,6 +103,11 @@ public:
     bool is_set() const
     {
         return !m_wpObserved.expired() && m_wpObserved.lock() != nullptr;
+    }
+
+    std::weak_ptr<T> get_as_weak() noexcept
+    {
+        return m_wpObserved;
     }
 
     obs_ptr<T> &get_obs()
@@ -217,3 +241,6 @@ std::shared_ptr<obs_ptr<T>> move_observer(std::shared_ptr<obs_ptr<T>> spObserver
     spObserver->unset();
     return std::move(pObserver);
 }
+
+template <typename T>
+using obs_sptr = std::shared_ptr<obs_ptr<T>>;

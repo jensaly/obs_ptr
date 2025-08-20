@@ -32,18 +32,18 @@ CEREAL_REGISTER_POLYMORPHIC_RELATION(IObserver, obs_ptr<SimpleObsTargetTestClass
 TEST(BasicObsTest, DefaultConstruction)
 {
     auto ptr1 = make_observer<SimpleObsTargetTestClass>();
-    ASSERT_EQ(ptr1->get_obs(), nullptr) << "Default-constructed obs_ptr is not null after construction.";
+    ASSERT_EQ(ptr1, nullptr) << "Default-constructed obs_ptr is not null after construction.";
 
     auto ptr2 = make_observer<SimpleObsTargetTestClass>();
-    EXPECT_EQ(ptr2->get_obs(), nullptr) << "Another default-constructed obs_ptr is not null.";
-    EXPECT_EQ(ptr1->get_obs(), ptr1->get_obs()) << "Two default-constructed obs_ptr do not compare equal.";
+    EXPECT_EQ(ptr2, nullptr) << "Another default-constructed obs_ptr is not null.";
+    EXPECT_EQ(ptr1, ptr1) << "Two default-constructed obs_ptr do not compare equal.";
 }
 
 TEST(BasicObsTest, ConstructionWithTarget)
 {
     auto var = std::make_shared<SimpleObsTargetTestClass>();
     auto test = make_observer(var);
-    ASSERT_EQ(test->get_obs(), var) << "obs_ptr.get() does not return pointer it was constructed with.";
+    ASSERT_EQ(test, var) << "obs_ptr.get() does not return pointer it was constructed with.";
 
     // Both destroyed
 }
@@ -67,7 +67,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Unset the observer, check that it is tracked by observed
         ptr1->set(var1);
 
-        EXPECT_EQ(ptr1->get_obs(), var1) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr1, var1) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr1->is_set());
         EXPECT_TRUE(var1->IsObserver(ptr1));
         EXPECT_EQ(var1->Observers(), 1);
@@ -77,7 +77,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Unset the observer, check that it is no longer tracked by observed
         ptr1->unset();
 
-        EXPECT_EQ(ptr1->get_obs(), nullptr) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr1, nullptr) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_FALSE(ptr1->is_set());
         EXPECT_FALSE(var1->IsObserver(ptr1));
         EXPECT_EQ(var1->Observers(), 0);
@@ -87,7 +87,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Reset the observer, check that it is again tracked (no residue behavior from unset)
         ptr1->set(var1);
 
-        EXPECT_EQ(ptr1->get_obs(), var1) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr1, var1) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr1->is_set());
         EXPECT_TRUE(var1->IsObserver(ptr1));
         EXPECT_EQ(var1->Observers(), 1);
@@ -97,7 +97,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Set second observer, check that both are now observed
         ptr2->set(var1);
 
-        EXPECT_EQ(ptr2->get_obs(), var1) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr2, var1) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr2->is_set());
         EXPECT_TRUE(var1->IsObserver(ptr1));
         EXPECT_TRUE(var1->IsObserver(ptr2));
@@ -108,7 +108,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Attempt to add observer again, check we are not tracking multiple copies
         ptr2->set(var1);
 
-        EXPECT_EQ(ptr2->get_obs(), var1) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr2, var1) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr2->is_set());
         EXPECT_TRUE(var1->IsObserver(ptr1));
         EXPECT_TRUE(var1->IsObserver(ptr2));
@@ -119,7 +119,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Unset second pointer, check that first is not affected
         ptr2->unset();
 
-        EXPECT_EQ(ptr1->get_obs(), var1) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr1, var1) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr1->is_set());
         EXPECT_TRUE(var1->IsObserver(ptr1));
         EXPECT_EQ(var1->Observers(), 1);
@@ -133,7 +133,7 @@ TEST(BasicObsTest, ManualAssignmentAndUnassignmentToTarget)
         // Use set method to change observer from var1 to var2, ensure cleanup.
         ptr1->set(var2);
 
-        EXPECT_EQ(ptr1->get_obs(), var2) << "obs_ptr.get() does not return pointer it was constructed with.";
+        EXPECT_EQ(ptr1, var2) << "obs_ptr.get() does not return pointer it was constructed with.";
         EXPECT_TRUE(ptr1->is_set());
         EXPECT_FALSE(var1->IsObserver(ptr1));
         EXPECT_TRUE(var2->IsObserver(ptr1));
@@ -151,15 +151,15 @@ TEST(BasicObsTest, Destruction)
         // Scoped destruction of target
         auto varScoped = std::make_shared<SimpleObsTargetTestClass>();
         ptrRoot->set(varScoped);
-        ASSERT_NE(ptrRoot->get_obs(), nullptr);
+        ASSERT_NE(ptrRoot, nullptr);
     }
-    EXPECT_EQ(ptrRoot->get_obs(), nullptr);
+    EXPECT_EQ(ptrRoot, nullptr);
 
     {
         // Scoped destruction of pointer
         auto ptrScoped = make_observer(varRoot);
 
-        EXPECT_NE(ptrScoped->get_obs(), nullptr);
+        EXPECT_NE(ptrScoped, nullptr);
         EXPECT_TRUE(varRoot->IsObserver(ptrScoped));
         EXPECT_EQ(varRoot->Observers(), 1);
     }
@@ -169,17 +169,17 @@ TEST(BasicObsTest, Destruction)
         // Manual destruction of target
         auto varScoped = std::make_shared<SimpleObsTargetTestClass>();
         ptrRoot->set(varScoped);
-        ASSERT_NE(ptrRoot->get_obs(), nullptr);
+        ASSERT_NE(ptrRoot, nullptr);
 
         varScoped.reset();
     }
-    EXPECT_EQ(ptrRoot->get_obs(), nullptr);
+    EXPECT_EQ(ptrRoot, nullptr);
 
     {
         // Manual destruction of pointer
         auto ptrScoped = make_observer(varRoot);
 
-        EXPECT_NE(ptrScoped->get_obs(), nullptr);
+        EXPECT_NE(ptrScoped, nullptr);
         EXPECT_TRUE(varRoot->IsObserver(ptrScoped));
         EXPECT_EQ(varRoot->Observers(), 1);
 
@@ -197,9 +197,9 @@ TEST(BasicObsTest, Copying)
     auto ptr2 = copy_observer(ptr1); // Copy
     auto ptr3 = copy_observer(ptr2); // Copy from a copy
 
-    EXPECT_EQ(ptr1->get_obs(), var);
-    EXPECT_EQ(ptr2->get_obs(), var);
-    EXPECT_EQ(ptr3->get_obs(), var);
+    EXPECT_EQ(ptr1, var);
+    EXPECT_EQ(ptr2, var);
+    EXPECT_EQ(ptr3, var);
 
     EXPECT_TRUE(var->IsObserver(ptr1));
     EXPECT_TRUE(var->IsObserver(ptr2));
@@ -208,8 +208,8 @@ TEST(BasicObsTest, Copying)
 
     ptr1 = nullptr;
 
-    EXPECT_EQ(ptr2->get_obs(), var);
-    EXPECT_EQ(ptr3->get_obs(), var);
+    EXPECT_EQ(ptr2, var);
+    EXPECT_EQ(ptr3, var);
     EXPECT_FALSE(var->IsObserver(ptr1));
     EXPECT_TRUE(var->IsObserver(ptr2));
     EXPECT_TRUE(var->IsObserver(ptr3));
@@ -217,8 +217,8 @@ TEST(BasicObsTest, Copying)
 
     var.reset();
 
-    EXPECT_EQ(ptr2->get_obs(), nullptr);
-    EXPECT_EQ(ptr3->get_obs(), nullptr);
+    EXPECT_EQ(ptr2, nullptr);
+    EXPECT_EQ(ptr3, nullptr);
 }
 
 TEST(BasicObsTest, ComparisonOperators)
@@ -231,42 +231,42 @@ TEST(BasicObsTest, ComparisonOperators)
     auto pNull = make_observer<SimpleObsTargetTestClass>();
 
     // Equality operator between obs_ptrs
-    EXPECT_NE(pVar1_1->get_obs(), pVar2_1->get_obs());
-    EXPECT_EQ(pVar1_1->get_obs(), pVar1_1->get_obs());
-    EXPECT_EQ(pVar1_1->get_obs(), pVar1_2->get_obs());
+    EXPECT_NE(pVar1_1, pVar2_1);
+    EXPECT_EQ(pVar1_1, pVar1_1);
+    EXPECT_EQ(pVar1_1, pVar1_2);
 
     // Nullptr comparison
-    EXPECT_NE(pVar1_1->get_obs(), nullptr);
-    EXPECT_EQ(pNull->get_obs(), nullptr);
+    EXPECT_NE(pVar1_1, nullptr);
+    EXPECT_EQ(pNull, nullptr);
 
     // Cross-type comparisons with nullptr
-    EXPECT_TRUE(nullptr == pNull->get_obs());
-    EXPECT_TRUE(pNull->get_obs() == nullptr);
-    EXPECT_FALSE(nullptr != pNull->get_obs());
-    EXPECT_FALSE(pNull->get_obs() != nullptr);
+    EXPECT_TRUE(nullptr == pNull);
+    EXPECT_TRUE(pNull == nullptr);
+    EXPECT_FALSE(nullptr != pNull);
+    EXPECT_FALSE(pNull != nullptr);
 
-    EXPECT_FALSE(nullptr == pVar1_1->get_obs());
-    EXPECT_FALSE(pVar1_1->get_obs() == nullptr);
-    EXPECT_TRUE(nullptr != pVar1_1->get_obs());
-    EXPECT_TRUE(pVar1_1->get_obs() != nullptr);
+    EXPECT_FALSE(nullptr == pVar1_1);
+    EXPECT_FALSE(pVar1_1 == nullptr);
+    EXPECT_TRUE(nullptr != pVar1_1);
+    EXPECT_TRUE(pVar1_1 != nullptr);
 
     // Cross-type comparisons with shared_ptr<T>
-    EXPECT_TRUE(var1 == pVar1_1->get_obs());
-    EXPECT_TRUE(pVar1_1->get_obs() == var1);
-    EXPECT_FALSE(var1 != pVar1_1->get_obs());
-    EXPECT_FALSE(pVar1_1->get_obs() != var1);
+    EXPECT_TRUE(var1 == pVar1_1);
+    EXPECT_TRUE(pVar1_1 == var1);
+    EXPECT_FALSE(var1 != pVar1_1);
+    EXPECT_FALSE(pVar1_1 != var1);
 
-    EXPECT_FALSE(var1 == pVar2_1->get_obs());
-    EXPECT_FALSE(pVar2_1->get_obs() == var1);
-    EXPECT_TRUE(var1 != pVar2_1->get_obs());
-    EXPECT_TRUE(pVar2_1->get_obs() != var1);
+    EXPECT_FALSE(var1 == pVar2_1);
+    EXPECT_FALSE(pVar2_1 == var1);
+    EXPECT_TRUE(var1 != pVar2_1);
+    EXPECT_TRUE(pVar2_1 != var1);
 
     // obs_ptr vs obs_ptr
-    EXPECT_TRUE(pVar1_1->get_obs() == pVar1_2->get_obs());
-    EXPECT_FALSE(pVar1_1->get_obs() != pVar1_2->get_obs());
+    EXPECT_TRUE(pVar1_1 == pVar1_2);
+    EXPECT_FALSE(pVar1_1 != pVar1_2);
 
-    EXPECT_FALSE(pVar1_1->get_obs() == pVar2_1->get_obs());
-    EXPECT_TRUE(pVar1_1->get_obs() != pVar2_1->get_obs());
+    EXPECT_FALSE(pVar1_1 == pVar2_1);
+    EXPECT_TRUE(pVar1_1 != pVar2_1);
 }
 
 TEST(BasicObsTest, MoveConstructorPreservesObservation)
@@ -277,8 +277,8 @@ TEST(BasicObsTest, MoveConstructorPreservesObservation)
         auto ptrOrigEmpty = make_observer<SimpleObsTargetTestClass>();
         auto ptrMovedEmpty = copy_observer(ptrOrigEmpty);
 
-        EXPECT_EQ(ptrOrigEmpty->get_obs(), nullptr);
-        EXPECT_EQ(ptrMovedEmpty->get_obs(), nullptr);
+        EXPECT_EQ(ptrOrigEmpty, nullptr);
+        EXPECT_EQ(ptrMovedEmpty, nullptr);
     }
     {
         // Move construction on an obs_ptr with stuff
@@ -295,8 +295,8 @@ TEST(BasicObsTest, MoveConstructorPreservesObservation)
         EXPECT_TRUE(var->IsObserver(ptrMoved));
         EXPECT_FALSE(var->IsObserver(ptrOrig));
         EXPECT_EQ(var->Observers(), 1);
-        EXPECT_EQ(ptrMoved->get_obs(), var);
-        EXPECT_EQ(ptrOrig->get_obs(), nullptr);
+        EXPECT_EQ(ptrMoved, var);
+        EXPECT_EQ(ptrOrig, nullptr);
         EXPECT_FALSE(ptrOrig->is_set());
         EXPECT_TRUE(ptrMoved->is_set());
     }
@@ -329,7 +329,7 @@ TEST(CerealTest, SerializationToBinary)
         ASSERT_NO_THROW(archive(ptr));
 
         EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(ptr, var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
     }
@@ -352,7 +352,7 @@ TEST(CerealTest, SerializeUnsetObserver)
         auto ptr = make_observer<SimpleObsTargetTestClass>();
         ASSERT_NO_THROW(iarchive(ptr));
         EXPECT_FALSE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), nullptr);
+        EXPECT_EQ(ptr, nullptr);
     }
 }
 
@@ -399,9 +399,9 @@ TEST(CerealTest, SerializeMultipleObserversToSameTarget)
         EXPECT_TRUE(p2L->is_set());
         EXPECT_TRUE(p3L->is_set());
 
-        EXPECT_EQ(p1L->get_obs(), varL);
-        EXPECT_EQ(p2L->get_obs(), varL);
-        EXPECT_EQ(p3L->get_obs(), varL);
+        EXPECT_EQ(p1L, varL);
+        EXPECT_EQ(p2L, varL);
+        EXPECT_EQ(p3L, varL);
 
         EXPECT_EQ(varL->Observers(), 3);
         EXPECT_TRUE(varL->IsObserver(p1L));
@@ -440,7 +440,7 @@ TEST(CerealTest, SerializeAfterMoveObserver)
         ASSERT_NO_THROW(archive(movedL));
 
         EXPECT_TRUE(movedL->is_set());
-        EXPECT_EQ(movedL->get_obs(), varL);
+        EXPECT_EQ(movedL, varL);
         EXPECT_EQ(varL->Observers(), 1);
         EXPECT_TRUE(varL->IsObserver(movedL));
     }
@@ -475,7 +475,7 @@ TEST(CerealTest, DestructionAfterSerialize)
         ASSERT_NO_THROW(archive(ptr));
 
         EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(ptr, var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
     }
@@ -496,21 +496,21 @@ TEST(CerealTest, DestructionAfterSerialize)
         ASSERT_NO_THROW(archive(ptr));
 
         EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(ptr, var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
 
         ptr->unset();
 
         EXPECT_FALSE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), nullptr);
+        EXPECT_EQ(ptr, nullptr);
         EXPECT_EQ(var->Observers(), 0);
         EXPECT_FALSE(var->IsObserver(ptr));
 
         ptr->set(varLocal);
 
         EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), varLocal);
+        EXPECT_EQ(ptr, varLocal);
         EXPECT_EQ(varLocal->Observers(), 1);
         EXPECT_TRUE(varLocal->IsObserver(ptr));
     }
@@ -532,8 +532,8 @@ TEST(CerealTest, SomePointersNotSerialized)
 
         EXPECT_TRUE(ptr1->is_set());
         EXPECT_TRUE(ptr2->is_set());
-        EXPECT_EQ(ptr1->get_obs(), var);
-        EXPECT_EQ(ptr2->get_obs(), var);
+        EXPECT_EQ(ptr1, var);
+        EXPECT_EQ(ptr2, var);
         EXPECT_EQ(var->Observers(), 2);
         EXPECT_TRUE(var->IsObserver(ptr1));
         EXPECT_TRUE(var->IsObserver(ptr2));
@@ -556,7 +556,7 @@ TEST(CerealTest, SomePointersNotSerialized)
 
         // Should now only have observer. Other should NOT have been created
         EXPECT_TRUE(ptr->is_set());
-        EXPECT_EQ(ptr->get_obs(), var);
+        EXPECT_EQ(ptr, var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(ptr));
     }
@@ -778,7 +778,7 @@ TEST(CerealTest, CallbackReconstruction)
         ASSERT_NO_THROW(archive(obsPtrOwner));
 
         EXPECT_TRUE(obsPtrOwner.pObserver->is_set());
-        EXPECT_EQ(obsPtrOwner.pObserver->get_obs(), var);
+        EXPECT_EQ(obsPtrOwner.pObserver, var);
         EXPECT_EQ(var->Observers(), 1);
         EXPECT_TRUE(var->IsObserver(obsPtrOwner.pObserver));
 

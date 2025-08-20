@@ -26,9 +26,6 @@
 // ========================
 // Forward Declarations
 // ========================
-template <typename T>
-class Observer;
-
 class IObserver;
 
 class IObserved
